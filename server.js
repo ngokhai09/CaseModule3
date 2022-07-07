@@ -4,6 +4,7 @@ const fs = require('fs')
 const qs = require('qs');
 const AccountController = require('./controllers/AccountController');
 const CustomerController = require('./controllers/CustomerController')
+const cookie = require("cookie");
 let accountController = new AccountController();
 let customerController = new CustomerController();
 
@@ -45,7 +46,18 @@ handlers.profile = (req, res)=>{
     customerController.showProfile(req,res);
 }
 handlers.update = (req, res)=>{
-    customerController.update(req, res);
+    let queryUrl = url.parse(req.url).query;
+    let id = qs.parse(queryUrl).id;
+    customerController.update(req, res, id);
+}
+handlers.account_update = (req, res)=>{
+    let queryUrl = url.parse(req.url).query;
+    let id = qs.parse(queryUrl).id;
+    customerController.accountUpdate(req, res, id);
+}
+handlers.logout = (req, res)=>{
+    console.log('123')
+    accountController.logout(req, res);
 }
 router = {
     '/login' : handlers.login,
@@ -54,8 +66,11 @@ router = {
     '/admin/user' : handlers.user_list,
     '/admin/blog' : handlers.blog_list,
     '/admin/profile' : handlers.profile,
-    '/user/update' :handlers.update
+    '/user/update' :handlers.update,
+    '/account/update' : handlers.account_update,
+    '/log' : handlers.logout
 }
+
 let mimeTypes={
     'jpg' : 'images/jpg',
     'png' : 'images/png',
@@ -70,18 +85,25 @@ let mimeTypes={
 const server = http.createServer(async(req, res)=>{
     let urlPath = url.parse(req.url).pathname;
     const filesDefences = urlPath.match(/\.js|\.css|\.png|\.svg|\.jpg|\.ttf|\.woff|\.woff2|\.eot/);
-
     if (filesDefences) {
         const extension = mimeTypes[filesDefences[0].toString().split('.')[1]];
         res.writeHead(200, {'Content-Type': extension});
         fs.createReadStream(__dirname  + req.url).pipe(res)
     } else {
+        let cookies = req.headers.cookie;
         let chosenHandler = (typeof (router[urlPath]) !== 'undefined') ? router[urlPath] : handlers.notfound;
-        chosenHandler(req, res);
+        if(typeof cookies !== 'undefined' || urlPath === '/login' || typeof (router[urlPath]) === 'undefined'){
+            chosenHandler(req, res);
+        }
+        else{
+            res.writeHead(301, {Location: '/login'})
+            res.end();
+        }
+
     }
 
 })
 
-server.listen(8080, 'localhost', ()=>{
-    console.log("Server is running");
+server.listen(8081, 'localhost', ()=>{
+    console.log("Server is running on http://localhost:8081");
 })
